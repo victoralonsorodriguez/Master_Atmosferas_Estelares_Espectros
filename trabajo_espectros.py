@@ -1,137 +1,131 @@
-
 # Imoprting packages
 import os
 
 import numpy as np
 
-from astropy.io import fits
-from astropy.io import ascii
-
-import scipy as scp
 from scipy.signal import find_peaks
+from scipy.signal import savgol_filter
 
 import matplotlib.pyplot as plt
 
-import pdb
+from astropy.stats import sigma_clip
 
 '''#-----CODE-----#'''
 
-# Obtaining the files to work with
-cwd = os.getcwd()
-spectrum_list = []
+def plot_spec(wl_values, it_values, continuum=None, lines=None):
+    """
+    Receives the intensity and wavelength data and makes a plot.
 
-for file in sorted(os.listdir(cwd)):
-    if '.dat'in file:
-        spectrum_list.append(file)
-
-
-# Analyzing each spectrum separately
-for i in range(len(spectrum_list)):
-#for i in range(1):
-
-    # Selecting the spectum
-    espectrum_name = spectrum_list[i]
-    espectrum_path = f'{cwd}/{espectrum_name}'
-
-    # Obtaining the data of each spectum 
-    data = ascii.read(espectrum_path)
-
-    # separating the wavelenght values from 
-    # the intensisty values
-    wl_values = np.array(data['col1'])
-    int_values = np.array(data['col2'])
-
-
-    #-----PEAKS-----#
-    # Selecting the upper peaks of the spectum
-    # This give us the position of the peak inside
-    # the data array
-    peaks_upper, _ = find_peaks(int_values)
-
-    wl_values_peaks_upper = wl_values[peaks_upper]
-    int_values_peaks_upper = int_values[peaks_upper]
-
-    # Selecting the lower peaks of the spectum
-    peaks_lower, _ = find_peaks(-int_values)
-
-    # Selecting the peaks whose have a small diference
-    # between them
-    peaks_diff = int_values[peaks_upper] - int_values[peaks_lower]
+    Parameters
+    ----------
+    wl_values : np.array
+        Wavelength values.
+        
+    it_values : np.array
+        Intensity values.
     
-    # Creating a mask for those peaks wich their 
-    # difference is less than dif_value
-    diff_value = 0.025
-    peaks_mask = peaks_diff < diff_value
+    continuum : 
+        Fit to the continuum.
+        
+    lines : 
+        Set of spectral lines to be plotted on top of the spectrum.
 
-    # selecting those good peaks positions
-    peaks_upper_good = peaks_upper[peaks_mask]
-    peaks_lower_good = peaks_lower[peaks_mask]
+    Returns
+    -------
+    None.
 
-    # Wavelenght values for thos peaks
-    wl_values_good = wl_values[peaks_upper_good]
-
-    # Wavelenght values for those peaks
-    wl_values_upper_good = wl_values[peaks_upper_good]
-    wl_values_lower_good = wl_values[peaks_lower_good]
-
-    # Intensity values for those peaks
-    int_values_upper_good = int_values[peaks_upper_good]
-    int_values_lower_good = int_values[peaks_lower_good]
-
-    # Mean value between the upper and lower peaks
-    peaks_good_mean = np.mean( np.array([int_values_upper_good,int_values_lower_good]), axis=0 )
-
-    # Apllying a mean filter to reduce the noise 
-    # between peaks
-    peaks_good_median = scp.signal.medfilt(peaks_good_mean, kernel_size = 5)
-
-    #-----FITTING-----#
-
-    # Now that points to fit are selected we can fit a 
-    # polynomial function to those peaks
-
-    fitting_points_wl = wl_values_upper_good
+    """
     
-    fitting_points_int = int_values_upper_good
+def norm_spec(wl_values, it_values):
+    """
+    Receives intensity and wavelength data of an spectrum and fits a function to the 
+    continuum.
+    
+    Parameters
+    ----------
+    wl_values : np.array
+        Wavelength values.
+        
+    it_values : np.array
+        Intensity values.
 
+    Returns
+    -------
+    Function fitted to the continuum, normalized values of intensity.
 
+    """
 
-    # Fitting the continuous 
-    fitting_function = np.polyfit(fitting_points_wl,fitting_points_int,4)
+def main():
+    """
+    Main function. Starts by looking for available spectra in the working directory.
 
-    # Obtaining the fitting function
-    fitting_polynomial = np.poly1d(fitting_function)
+    Returns
+    -------
+    None.
 
-    # Creating the fitting data
-    fitting_intensity = fitting_polynomial(wl_values)
+    """
+    # Obtaining the files to work with
+    cwd = os.getcwd()
+    spectrum_list = []
 
-    # Normalizing the spectrum
-    normalize_spectrum = int_values / fitting_intensity
+    for file in sorted(os.listdir(cwd)):
+        if '.dat'in file:
+            spectrum_list.append(file)
+    
+    for i, spec in enumerate(spectrum_list):
+        print(f"{i}: {spec}")
+    
+    spectrum_path = f'{cwd}/{spectrum_list[2]}'
+    
+    # Loading data:
+    data = np.loadtxt(spectrum_path)
+    wl_values = data[:,0] # A
+    it_values = data[:,1] # arbitrary units
+    nu_values = 3e+8/(wl_values*10**-10) # Hz
+    
+    resolution = abs(wl_values[1]-wl_values[0])
+    
+    # Raw spectrum
+    plt.figure(dpi=700)
+    plt.plot(wl_values, it_values, color="red", linewidth=0.2)
+    
+    # A typical line width is defined. It can be 10 GHz for example. This will be used
+    # for getting the maxima.
+    typical_width_freq = 10e+9
+    typical_width_wl = (typical_width_freq*3e+8/((max(nu_values))**2))*10**10
+    # When looking for the maxima, a window of a certain size will be used. This size 
+    # is chosen considering the typical width of a line in the spectrum:
+    window_size = 600*typical_width_wl/resolution
 
-    #-----PLOTTING-----#
+    #Maxima are selected:
+    peaks, _ = find_peaks(it_values, distance=window_size)
+    
+    iterations = 2 # This will be an argument of a function
+    
+    for i in range(iterations):
+        
+        # Wavelength and intensity values for the peaks:
+        wl_values_peaks = wl_values[peaks]
+        it_values_peaks = it_values[peaks]
+    
+        # A polinomium is fitted:
+        fitted_pol = np.polyfit(wl_values_peaks,it_values_peaks,5)
+        fitted_intensity = np.polyval(fitted_pol,wl_values)
+        
+        if i<iterations-1:
+            # Calculate the difference between maxima and fitted continuum
+            difference = it_values_peaks - fitted_intensity[peaks]
+            
+            # Asymetric sigma clipping to filter the peaks, removing the ones
+            # far from the fitted polynomium
+            clipped_differences = sigma_clip(difference, sigma_upper=7, sigma_lower=3)  # Change sigma value as needed
+            # Keep only the maxima that pass the sigma clipping
+            peaks = peaks[~clipped_differences.mask]
+            wl_values_peaks = wl_values[peaks]
+            it_values_peaks = it_values[peaks]
 
-    # Plotting the raw spectrum
-    # along with the fitting function
-    plt.figure(1)
+    plt.plot(wl_values,fitted_intensity, "green")
+    #plt.plot(wl_values_peaks, it_values_peaks,"x")
 
-    # Plotting the raw spectum
-    plt.plot(wl_values,int_values)
-
-    # Plotting the point selected to fit
-    plt.plot(fitting_points_wl, fitting_points_int, "x")
-
-    # Plotting the fitting function
-    plt.plot(wl_values,fitting_intensity)
-
-
-
-    # Plotting the normalized spectrum
-    plt.figure(2)
-
-    # Plotting the raw spectum
-    plt.plot(wl_values,normalize_spectrum)
-    plt.ylim(bottom=0,top=1.5)
-
-    # Showing the plots
-    plt.show()
+   
 
