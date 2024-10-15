@@ -1,0 +1,11 @@
+Estrella problema 1:
+
+	smoothing parameter for UnivariateSpline fit: 0.01
+	filtering iterations: 4
+
+Estrella problema 2:
+
+	smoothing parameter for UnivariateSpline fit: 0.01
+	filtering iterations: 2
+	
+	
