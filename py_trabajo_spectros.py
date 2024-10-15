@@ -1,6 +1,7 @@
 # Imoprting packages
 import os
 import shutil
+import sys
 
 import numpy as np
 
@@ -11,6 +12,9 @@ from scipy.interpolate import UnivariateSpline
 import matplotlib.pyplot as plt
 
 from astropy.stats import sigma_clip
+
+from py_parametros_dict import fiting_parameters
+
 
 '''#-----CODE-----#'''
 
@@ -70,7 +74,8 @@ def plot_spec(wl_values, it_values, path, color="blue", continuum=None, lines=No
         plt.plot(wl_values, continuum, "green", linewidth=0.7)
         
     # Save image as SVG
-    plt.savefig(path, format='svg')  
+    plt.savefig(f'{path}.svg', format='svg')
+    plt.savefig(f'{path}.pdf', format='pdf') 
     
     
 def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
@@ -146,6 +151,7 @@ def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
     
     return continuum_it, normalized_it, peaks
 
+#def main(run_version,spectrum_list,i=None,spec_name=None,spec_smooth_dict=None,spec_iter_dict=None):
 def main():
     """
     Main function. Starts by looking for available spectra in the working directory.
@@ -155,58 +161,98 @@ def main():
     None.
 
     """
-    # Obtaining the files to work with
-    cwd = os.getcwd()
-    spectrum_list = []
 
-    for file in sorted(os.listdir(cwd)):
-        if '.dat'in file:
-            spectrum_list.append(file)
-    print("Available spectra:\n")
-    for i, spec in enumerate(spectrum_list):
-        print(f"{i}: {spec}")
-    print("\n")
-    # Spectrum to analyse.
-    spec_num = int(input("### Spectrum to be analysed (number): "))
-    spectrum_path = f'{cwd}/{spectrum_list[spec_num]}'
+    # Spectrum to analyse
+    if run_version == '-m':
+        # User selection
+        spec_num = int(input("### Spectrum to be analysed (number): "))
+        
+    else:
+        # Automatic mode
+        spec_num = spect_pos
+
+    spectrum_name = spectrum_list[spec_num]
+    spectrum_path = f'{cwd}/{spectrum_name}'
+ 
     
-    print(f"Loading spectrum {spectrum_list[spec_num]}\n")
+    print(f"Loading spectrum {spectrum_name}\n")
     
     # A directory where figures will be saved is created:
-    dirname = spectrum_list[spec_num][:-4]
+    dirname = spectrum_name.split('.')[0]
     if os.path.exists(dirname):
         shutil.rmtree(dirname)
     os.makedirs(dirname)
         
     # Loading data:
     data = np.loadtxt(spectrum_path)
-    wl_values = data[:,0] # A
+    wl_values = data[:,0] # Angstrons
     it_values = data[:,1] # arbitrary units
     
     #########################################################################
     
     # Raw spectrum is plotted:
-    plot_spec(wl_values, it_values, os.path.join(dirname, "raw.svg"))
+    plot_spec(wl_values, it_values, os.path.join(dirname, "01_raw_spectrum"))
     
     #########################################################################
     
     # Normalization:
-    smoothing_parameter = float(input("### Indicate smoothing parameter for spline fit: "))
-    print("")
-    iterations = int(input("### Indicate number of filtering iterations: "))
+    if run_version == '-m':
+        # User selection of fitting parameters
+        smoothing_parameter = float(input("### Indicate smoothing parameter for spline fit: "))
+        print("")
+        iterations = int(input("### Indicate number of filtering iterations: "))
+    
+    else:
+        # Automatic selection  of fitting parameters
+        smoothing_parameter = spec_smooth_dict[f'{spectrum_name}']
+        iterations = spec_iter_dict[f'{spectrum_name}']
+    
     it_continuum, it_normalized, used_maxima = norm_spec(wl_values, it_values, 
                                                          s=smoothing_parameter, 
                                                          filter_iterations=iterations)
     
     # Spectrum with continuum is produced:
-    plot_spec(wl_values, it_values, os.path.join(dirname, "continuum.svg"), continuum=it_continuum)
+    plot_spec(wl_values, it_values, os.path.join(dirname, "02_continuum"), continuum=it_continuum)
     
     # Normalized spectrum is produced:
-    plot_spec(wl_values, it_normalized, os.path.join(dirname, "normalized.svg"))
+    plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
 
 
 if __name__ == "__main__":
-    main()
-   
-   
+
+    # Obtaining the files to work with
+    cwd = os.getcwd()
+    spectrum_list = []
+
+    for file in sorted(os.listdir(cwd)):
+        if '.dat' in file:
+            spectrum_list.append(file)
+    print("Available spectra:\n")
+    for i, spec in enumerate(spectrum_list):
+        print(f"{i}: {spec}")
+    print("\n")
+
+    # Selecting the automatic mode or the manual mode by arguments
+    if len(sys.argv) == 1:
+
+        # By default the running version is the automatic
+        sys.argv.append('-a')
+
+    run_version = sys.argv[1]
+
+
+    if run_version == '-a':
+
+        # Loading fitting parameters dictionaries
+        spec_smooth_dict, spec_iter_dict = fiting_parameters()
+
+        # Analyzing each spectrum
+        for spect_pos, spec_name in enumerate(spectrum_list):
+  
+            main()
+
+    else:
+
+        main()
+
 
