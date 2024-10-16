@@ -3,6 +3,8 @@ import os
 import shutil
 import sys
 
+import pdb
+
 import numpy as np
 
 from scipy.signal import find_peaks
@@ -11,14 +13,17 @@ from scipy.interpolate import UnivariateSpline
 
 import matplotlib.pyplot as plt
 
+from itertools import cycle
+
 from astropy.stats import sigma_clip
 
-from py_parametros_dict import fiting_parameters
+from py_dict_fitting_params import fiting_parameters
+from py_dict_wavelenght import wl_lines
 
 
 '''#-----CODE-----#'''
 
-def plot_spec(wl_values, it_values, path, color="blue", continuum=None, lines=None, points=None):
+def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=None, points=None):
     """
     Receives the intensity and wavelength data and makes a plot.
 
@@ -66,16 +71,35 @@ def plot_spec(wl_values, it_values, path, color="blue", continuum=None, lines=No
                 \DeclareSIUnit{\cts}{cts}
                 '''
     # Figure is created:
-    plt.figure(dpi=700)
-    plt.plot(wl_values, it_values, color=color, linewidth=0.2)
-    plt.fill_between(wl_values, it_values, 0, color=color, alpha=0.2, edgecolor=None)
+    plt.figure()
+    plt.plot(wl_values, it_values, color=color, linewidth=0.3)
+    #plt.fill_between(wl_values, it_values, 0, color=color, alpha=0.2, edgecolor=None)
     
     if continuum is not None:
         plt.plot(wl_values, continuum, "green", linewidth=0.7)
-        
+
+    wl_lines_keys = wl_lines_dict.keys()
+    
+    colours = ['indianred','red','orange','yellow','lime','green','cyan',
+               'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson']
+
+    plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
+
+    if '03_normalized' in path:
+        for key_pos,key in enumerate(wl_lines_keys):
+
+            plt.vlines(x=wl_lines_dict[key], ymin=0, ymax=max(it_values),color=colours[key_pos],label=key,linewidth=0.7)
+
+        plt.legend(loc='lower right')    
+        plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
+        plt.show()
+
     # Save image as SVG
-    plt.savefig(f'{path}.svg', format='svg')
-    plt.savefig(f'{path}.pdf', format='pdf') 
+    #plt.savefig(f'{path}.svg', format='svg')
+    
+    plt.close()
+
+
     
     
 def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
@@ -240,6 +264,7 @@ if __name__ == "__main__":
 
     run_version = sys.argv[1]
 
+    wl_lines_dict = wl_lines()
 
     if run_version == '-a':
 

@@ -1,7 +1,7 @@
 
 def fiting_parameters():
 
-    spectrum_smoothing = {'EstrellaProblema1.dat':0.01,
+    spectrum_smoothing = {'EstrellaProblema1.dat':0.08,
                         'EstrellaProblema2.dat':0.01
                         }
     
@@ -11,3 +11,5 @@ def fiting_parameters():
                         }
     
     return spectrum_smoothing,spectrum_iterations
+
+
