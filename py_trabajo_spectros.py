@@ -81,7 +81,7 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     wl_lines_keys = wl_lines_dict.keys()
     
     colours = ['indianred','red','orange','yellow','lime','green','cyan',
-               'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson']
+               'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson', 'red']
 
     plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
 
@@ -183,7 +183,7 @@ def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
 
 def radialv_correct(wl_values, it_values, rv_threshold):
     """
-    Receives a spectrum and uses the spectral H I lines to calculate the
+    Receives a spectrum and uses the spectral H and He lines to calculate the
     radial velocity and generate a corrected spectrum.
 
     Parameters
@@ -205,28 +205,35 @@ def radialv_correct(wl_values, it_values, rv_threshold):
     # radial velocities computed with different lines will be saved here:
     radial_velocities = []
     # we take HI lines only:
-    lines = wl_lines()['H I']
-    for rest_wavelength in lines:
+    lines = wl_lines()['H I']+wl_lines()['He I']+wl_lines()['He II']
+    
+    for rest_wavelength in [wl for wl in lines if wl > 4500]:
         # Range around the rest-frame line where a peak in the observed spectrum will be searched:
-        window_size = 5e-3*rest_wavelength
+        window_size = 2e-3*rest_wavelength
         # List of index in the range.
         wl_range = (wl_values >= rest_wavelength - window_size) & (wl_values <= rest_wavelength + window_size)
         # If the lines are strong enough, they are used to calculate the radial velocity:
-        if np.min(it_values[wl_range]) < rv_threshold:
-            observed_wavelength = wl_values[wl_range][np.argmin(it_values[wl_range])]
+        if np.max((abs(it_values-1))[wl_range]) > rv_threshold:
+            #print(rest_wavelength)
+            observed_wavelength = wl_values[wl_range][np.argmax((abs(it_values-1))[wl_range])]
             v_over_c = (observed_wavelength - rest_wavelength) / rest_wavelength
             radial_velocities.append(v_over_c)
     
     # We filter the list of radial velocites to remove outliers
-    clipped_velocities = sigma_clip(radial_velocities, sigma=1, cenfunc='median') 
+    clipped_velocities = sigma_clip(radial_velocities, sigma=1.5, cenfunc='median') 
+    #print(clipped_velocities)
     # Average of the good values for the velocites:
     radial_velocity = np.mean(clipped_velocities)
+    print(f"radial velocity: {radial_velocity}")
     
     # The spectrum is now corrected:
     corrected_wl_values = wl_values/(1+radial_velocity)
+    
     return corrected_wl_values
     
     
+    
+
 #def main(run_version,spectrum_list,i=None,spec_name=None,spec_smooth_dict=None,spec_iter_dict=None):
 def main():
     """
@@ -292,7 +299,7 @@ def main():
     plot_spec(wl_values, it_values, os.path.join(dirname, "02_continuum"), continuum=it_continuum)
     
     # Normalized spectrum is produced:
-    plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
+    #plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
 
     # Radial velocity is corrected:
     corrected_wl_values = radialv_correct(wl_values, it_normalized, rv_threshold)
