@@ -71,7 +71,7 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
                 \DeclareSIUnit{\cts}{cts}
                 '''
     # Figure is created:
-    plt.figure()
+    plt.figure(figsize=(8,3))
     plt.plot(wl_values, it_values, color=color, linewidth=0.3)
     #plt.fill_between(wl_values, it_values, 0, color=color, alpha=0.2, edgecolor=None)
     
@@ -81,23 +81,27 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     wl_lines_keys = wl_lines_dict.keys()
     
     colours = ['indianred','red','orange','yellow','lime','green','cyan',
-               'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson']
+               'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson', 'red']
 
     plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
 
-    if '03_normalized' in path:
+    if 'normalized' in path:
         for key_pos,key in enumerate(wl_lines_keys):
 
-            plt.vlines(x=wl_lines_dict[key], ymin=0, ymax=max(it_values),color=colours[key_pos],label=key,linewidth=0.7)
-
+            plt.vlines(x=wl_lines_dict[key], ymin=min(it_values), ymax=max(it_values),color=colours[key_pos],label=key,linewidth=0.7)
+            
+            for wavelength in wl_lines_dict[key]:
+                plt.annotate(key, xy=(wavelength, 1), xycoords=("data", "axes fraction"),va='bottom', ha='center', color=colours[key_pos])
+                plt.axvline(x=wavelength, color=colours[key_pos],linewidth=0.7)
         plt.legend(loc='lower right')    
         plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
-        plt.show()
+        
+    plt.show()
 
     # Save image as SVG
     #plt.savefig(f'{path}.svg', format='svg')
     
-    plt.close()
+    #plt.close()
 
 
     
@@ -138,7 +142,7 @@ def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
     typical_width_freq = 10e+9
     typical_width_wl = (typical_width_freq*3e+8/((max(nu_values))**2))*10**10
     # Window size:
-    window_size = 600*typical_width_wl/resolution
+    window_size = 450*typical_width_wl/resolution
     
     #Peaks are selected:
     peaks, _ = find_peaks(it_values, distance=window_size)
@@ -150,7 +154,7 @@ def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
         it_values_peaks = it_values[peaks]
     
         # A polinomium is fitted:
-        fitted_pol = np.polyfit(wl_values_peaks,it_values_peaks,5)
+        fitted_pol = np.polyfit(wl_values_peaks,it_values_peaks,4)
         # Intensity values of the provisional continuum:
         fitted_intensity = np.polyval(fitted_pol,wl_values)
         
@@ -160,7 +164,7 @@ def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
             
             # Asymetric sigma clipping to filter the peaks, removing the ones
             # far from the fitted polynomium
-            clipped_differences = sigma_clip(difference, sigma_upper=7, sigma_lower=3)  # Change sigma value as needed
+            clipped_differences = sigma_clip(difference, sigma_upper=3, sigma_lower=3)  # Change sigma value as needed
             # Keep only the maxima that pass the sigma clipping
             peaks = peaks[~clipped_differences.mask]
             wl_values_peaks = wl_values[peaks]
@@ -174,6 +178,61 @@ def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
     normalized_it = it_values/continuum_it
     
     return continuum_it, normalized_it, peaks
+
+
+
+def radialv_correct(wl_values, it_values, rv_threshold):
+    """
+    Receives a spectrum and uses the spectral H and He lines to calculate the
+    radial velocity and generate a corrected spectrum.
+
+    Parameters
+    ----------
+    wl_values : np.array
+        Wavelength values.
+        
+    it_values : np.array
+        Intensity values.
+
+    rv_threshold: float
+        Intensity threshold for selecting lines.
+    
+    Returns
+    -------
+    Wavelength values of the corrected spectrum.
+
+    """
+    # radial velocities computed with different lines will be saved here:
+    radial_velocities = []
+    # we take HI lines only:
+    lines = wl_lines()['H I']+wl_lines()['He I']+wl_lines()['He II']
+    
+    for rest_wavelength in [wl for wl in lines if wl > 4500]:
+        # Range around the rest-frame line where a peak in the observed spectrum will be searched:
+        window_size = 2e-3*rest_wavelength
+        # List of index in the range.
+        wl_range = (wl_values >= rest_wavelength - window_size) & (wl_values <= rest_wavelength + window_size)
+        # If the lines are strong enough, they are used to calculate the radial velocity:
+        if np.max((abs(it_values-1))[wl_range]) > rv_threshold:
+            #print(rest_wavelength)
+            observed_wavelength = wl_values[wl_range][np.argmax((abs(it_values-1))[wl_range])]
+            v_over_c = (observed_wavelength - rest_wavelength) / rest_wavelength
+            radial_velocities.append(v_over_c)
+    
+    # We filter the list of radial velocites to remove outliers
+    clipped_velocities = sigma_clip(radial_velocities, sigma=1.5, cenfunc='median') 
+    #print(clipped_velocities)
+    # Average of the good values for the velocites:
+    radial_velocity = np.mean(clipped_velocities)
+    print(f"radial velocity: {radial_velocity}")
+    
+    # The spectrum is now corrected:
+    corrected_wl_values = wl_values/(1+radial_velocity)
+    
+    return corrected_wl_values
+    
+    
+    
 
 #def main(run_version,spectrum_list,i=None,spec_name=None,spec_smooth_dict=None,spec_iter_dict=None):
 def main():
@@ -230,6 +289,7 @@ def main():
         # Automatic selection  of fitting parameters
         smoothing_parameter = spec_smooth_dict[f'{spectrum_name}']
         iterations = spec_iter_dict[f'{spectrum_name}']
+        rv_threshold = rv_thresholds_dict[f'{spectrum_name}']
     
     it_continuum, it_normalized, used_maxima = norm_spec(wl_values, it_values, 
                                                          s=smoothing_parameter, 
@@ -239,7 +299,11 @@ def main():
     plot_spec(wl_values, it_values, os.path.join(dirname, "02_continuum"), continuum=it_continuum)
     
     # Normalized spectrum is produced:
-    plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
+    #plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
+
+    # Radial velocity is corrected:
+    corrected_wl_values = radialv_correct(wl_values, it_normalized, rv_threshold)
+    plot_spec(corrected_wl_values, it_normalized, os.path.join(dirname, "04_normalized_spectrum_RF"))
 
 
 if __name__ == "__main__":
@@ -269,7 +333,7 @@ if __name__ == "__main__":
     if run_version == '-a':
 
         # Loading fitting parameters dictionaries
-        spec_smooth_dict, spec_iter_dict = fiting_parameters()
+        spec_smooth_dict, spec_iter_dict, rv_thresholds_dict = fiting_parameters()
 
         # Analyzing each spectrum
         for spect_pos, spec_name in enumerate(spectrum_list):
@@ -279,5 +343,3 @@ if __name__ == "__main__":
     else:
 
         main()
-
-
