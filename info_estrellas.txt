@@ -1,7 +1,8 @@
-Estrella problema 1:
+Estrella problema 1: O9 Ia(f)?
 
-	smoothing parameter for UnivariateSpline fit: 0.01
-	filtering iterations: 4
+	Tipo espectral O9: 
+	Clase de luminosidad: I o II (gigante)
+	sufijo f: emisión de N III y absorción débil de He II
 
 Estrella problema 2:
 
