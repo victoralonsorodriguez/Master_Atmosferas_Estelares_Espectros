@@ -458,8 +458,7 @@ def main():
 
     # Matching the lines
     peaks_matched,lines_matched_dict = matching_lines(corrected_wl_values, it_normalized,wl_lines_dict)
-    plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "05_normalized_lines_peaks"))
-    plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "06_normalized_lines_peaks_matched"), peaks=peaks_matched, lines_dict=lines_matched_dict)
+    plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "05_normalized_lines_peaks_matched"), peaks=peaks_matched, lines_dict=lines_matched_dict)
 
     # Obtaining the equivalent width of each matched line
     #equiv_width(corrected_wl_values,it_normalized,peaks_matched,lines_matched_dict)
