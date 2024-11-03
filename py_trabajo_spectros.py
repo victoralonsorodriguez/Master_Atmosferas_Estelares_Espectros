@@ -10,6 +10,9 @@ import numpy as np
 from scipy.signal import find_peaks
 #from scipy.signal import savgol_filter
 from scipy.interpolate import UnivariateSpline
+from scipy.special import voigt_profile
+from scipy.optimize import curve_fit 
+
 
 import matplotlib.pyplot as plt
 
@@ -323,13 +326,23 @@ def matching_lines(wl_values, it_values,lines_dict):
     lines_dict = new_lines_dict
 
     return peaks, lines_dict
-    
+
+def gaussian(x, A, x0, sig):
+    return A*np.exp(-(x-x0)**2/(2*sig**2))
+
+def multi_gaussian(x, *pars):
+    offset = pars[-1]
+    g1 = gaussian(x, pars[0], pars[1], pars[2])
+    g2 = gaussian(x, pars[3], pars[4], pars[5])
+    g3 = gaussian(x, pars[6], pars[7], pars[8])
+    return g1 + g2 + g3 + offset
 
 
 def equiv_width(wl_values, it_values,peaks,lines_dict):
 
     '''
     Function to compute the equivalent width of the matching lines
+    Doesn't work
     '''
 
     # 1. Determinar el rango del continuo
@@ -339,22 +352,36 @@ def equiv_width(wl_values, it_values,peaks,lines_dict):
 
     lines_dict_keys = lines_dict.keys()
 
-    continuum_range = 25
-    peaks_range_fit = []
+    wl_deviation = 0.75 # nm
+    continuum_range = 50
+    peaks_wl_range_fit = []
+    peaks_it_range_fit = []
 
     for key_pos,key in enumerate(lines_dict_keys):
         for line_wl in lines_dict[key]:
             for peak_num in peaks:
+                if line_wl-wl_deviation<wl_values[peak_num] and wl_values[peak_num]<line_wl+wl_deviation:
+                    print(f'{key}:{line_wl}')
+                    peaks_wl_range_fit.append(wl_values[peak_num-continuum_range:peak_num+continuum_range])
+                    peaks_it_range_fit.append(it_values[peak_num-continuum_range:peak_num+continuum_range])
+
+
+    plt.figure()
+
+    # Adjust to a voigt_profile
+
+    #for line_range_pos,line_range in enumerate(peaks_wl_range_fit):
+    line_range_pos = 2
+    guess = [4, -50, 10, 4, 50, 10, 7, 0, 50, 1]
+    popt, pcov = curve_fit(multi_gaussian,peaks_wl_range_fit[line_range_pos],peaks_it_range_fit[line_range_pos],guess)  
+    print(popt)
+
+    func = multi_gaussian(peaks_wl_range_fit[line_range_pos],popt[0],popt[1],popt[2])
+    plt.plot(peaks_wl_range_fit[line_range_pos],func)
+    plt.plot(peaks_wl_range_fit[line_range_pos],peaks_it_range_fit[line_range_pos])
+
+    plt.show()
                 
-                peaks_range_fit.append(wl_values[peak_num-continuum_range:peak_num+continuum_range])
-
-
-   #pdb.set_trace()
-                
-
-
-
-    pass
     
 
 #def main(run_version,spectrum_list,i=None,spec_name=None,spec_smooth_dict=None,spec_iter_dict=None):
@@ -434,7 +461,7 @@ def main():
     plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "06_normalized_lines_peaks_matched"), peaks=peaks_matched, lines_dict=lines_matched_dict)
 
     # Obtaining the equivalent width of each matched line
-    equiv_width(corrected_wl_values,it_normalized,peaks_matched,lines_matched_dict)
+    #equiv_width(corrected_wl_values,it_normalized,peaks_matched,lines_matched_dict)
 
 
 
