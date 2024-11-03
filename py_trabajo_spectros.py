@@ -322,6 +322,7 @@ def matching_lines(wl_values, it_values,lines_dict):
     
                     
     # Peaks selected that matched the lines
+    # and lines matched
     peaks = peaks_below
     lines_dict = new_lines_dict
 
