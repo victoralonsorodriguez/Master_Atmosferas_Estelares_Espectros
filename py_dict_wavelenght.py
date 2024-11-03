@@ -1,4 +1,3 @@
-
 def wl_lines():
 
     # Obtained from https://linelist.pa.uky.edu/newpage/
