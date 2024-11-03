@@ -10,9 +10,6 @@ import numpy as np
 from scipy.signal import find_peaks
 #from scipy.signal import savgol_filter
 from scipy.interpolate import UnivariateSpline
-from scipy.special import voigt_profile
-from scipy.optimize import curve_fit 
-
 
 import matplotlib.pyplot as plt
 
@@ -21,6 +18,7 @@ from itertools import cycle
 from astropy.stats import sigma_clip
 
 from py_dict_fitting_params import fiting_parameters
+from py_dict_fitting_params import tipos_estrella
 from py_dict_wavelenght import wl_lines
 
 
@@ -83,11 +81,15 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
 
     #wl_lines_keys = wl_lines_dict.keys()
 
-    lines_dict_plot = wl_lines_dict
+    
 
     if lines_dict is not None:
         
         lines_dict_plot = lines_dict
+    
+    else:
+        lines_dict_plot = wl_lines_dict
+        
         
     
     lines_dict_plot_keys = lines_dict_plot.keys()
@@ -148,7 +150,7 @@ def finding_peaks(wl_values, it_values, window_size_factor=450):
     peaks, _ = find_peaks(it_values, distance=window_size)
 
     return peaks
-    
+
     
 def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
     """
@@ -175,7 +177,6 @@ def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
     to fit the continuum.
 
     """
-
     # Finding the peaks
     peaks = finding_peaks(wl_values, it_values)
 
@@ -265,6 +266,7 @@ def radialv_correct(wl_values, it_values, rv_threshold):
     return corrected_wl_values
     
 
+
 def matching_lines(wl_values, it_values,lines_dict):
 
     '''
@@ -322,67 +324,10 @@ def matching_lines(wl_values, it_values,lines_dict):
     
                     
     # Peaks selected that matched the lines
-    # and lines matched
     peaks = peaks_below
     lines_dict = new_lines_dict
 
     return peaks, lines_dict
-
-def gaussian(x, A, x0, sig):
-    return A*np.exp(-(x-x0)**2/(2*sig**2))
-
-def multi_gaussian(x, *pars):
-    offset = pars[-1]
-    g1 = gaussian(x, pars[0], pars[1], pars[2])
-    g2 = gaussian(x, pars[3], pars[4], pars[5])
-    g3 = gaussian(x, pars[6], pars[7], pars[8])
-    return g1 + g2 + g3 + offset
-
-
-def equiv_width(wl_values, it_values,peaks,lines_dict):
-
-    '''
-    Function to compute the equivalent width of the matching lines
-    Doesn't work
-    '''
-
-    # 1. Determinar el rango del continuo
-    # 2. Ajustar a una gaussiana junto con una lorentziana
-    # 3. Calcular el area
-    # 4. Calcular la anchura equivalente
-
-    lines_dict_keys = lines_dict.keys()
-
-    wl_deviation = 0.75 # nm
-    continuum_range = 50
-    peaks_wl_range_fit = []
-    peaks_it_range_fit = []
-
-    for key_pos,key in enumerate(lines_dict_keys):
-        for line_wl in lines_dict[key]:
-            for peak_num in peaks:
-                if line_wl-wl_deviation<wl_values[peak_num] and wl_values[peak_num]<line_wl+wl_deviation:
-                    print(f'{key}:{line_wl}')
-                    peaks_wl_range_fit.append(wl_values[peak_num-continuum_range:peak_num+continuum_range])
-                    peaks_it_range_fit.append(it_values[peak_num-continuum_range:peak_num+continuum_range])
-
-
-    plt.figure()
-
-    # Adjust to a voigt_profile
-
-    #for line_range_pos,line_range in enumerate(peaks_wl_range_fit):
-    line_range_pos = 2
-    guess = [4, -50, 10, 4, 50, 10, 7, 0, 50, 1]
-    popt, pcov = curve_fit(multi_gaussian,peaks_wl_range_fit[line_range_pos],peaks_it_range_fit[line_range_pos],guess)  
-    print(popt)
-
-    func = multi_gaussian(peaks_wl_range_fit[line_range_pos],popt[0],popt[1],popt[2])
-    plt.plot(peaks_wl_range_fit[line_range_pos],func)
-    plt.plot(peaks_wl_range_fit[line_range_pos],peaks_it_range_fit[line_range_pos])
-
-    plt.show()
-                
     
 
 #def main(run_version,spectrum_list,i=None,spec_name=None,spec_smooth_dict=None,spec_iter_dict=None):
@@ -425,7 +370,7 @@ def main():
     #########################################################################
     
     # Raw spectrum is plotted:
-    plot_spec(wl_values, it_values, os.path.join(dirname, "01_raw_spectrum"))
+    #plot_spec(wl_values, it_values, os.path.join(dirname, "01_raw_spectrum"))
     
     #########################################################################
     
@@ -438,19 +383,24 @@ def main():
     
     elif run_version == '-a' or  run_version == '-e':
         # Automatic selection  of fitting parameters
-        smoothing_parameter = spec_smooth_dict[f'{spectrum_name}']
-        iterations = spec_iter_dict[f'{spectrum_name}']
-        rv_threshold = rv_thresholds_dict[f'{spectrum_name}']
+        if spectrum_name in calientes:
+            spectrum_type = 'calientes'
+        if spectrum_name in frias:
+            spectrum_type = 'frias'
+            
+        smoothing_parameter = spec_smooth_dict[f'{spectrum_type}']
+        iterations = spec_iter_dict[f'{spectrum_type}']
+        rv_threshold = rv_thresholds_dict[f'{spectrum_type}']
     
     it_continuum, it_normalized, used_maxima = norm_spec(wl_values, it_values, 
                                                          s=smoothing_parameter, 
                                                          filter_iterations=iterations)
     
     # Spectrum with continuum is produced:
-    plot_spec(wl_values, it_values, os.path.join(dirname, "02_continuum"), continuum=it_continuum)
+    #plot_spec(wl_values, it_values, os.path.join(dirname, "02_continuum"), continuum=it_continuum)
     
     # Normalized spectrum is produced:
-    plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
+    #plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
 
     # Radial velocity is corrected:
     corrected_wl_values = radialv_correct(wl_values, it_normalized, rv_threshold)
@@ -458,16 +408,14 @@ def main():
 
     # Matching the lines
     peaks_matched,lines_matched_dict = matching_lines(corrected_wl_values, it_normalized,wl_lines_dict)
-    plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "05_normalized_lines_peaks"))
+    #plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "05_normalized_lines_peaks"))
     plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "06_normalized_lines_peaks_matched"), peaks=peaks_matched, lines_dict=lines_matched_dict)
 
     # Obtaining the equivalent width of each matched line
     #equiv_width(corrected_wl_values,it_normalized,peaks_matched,lines_matched_dict)
+    
 
-
-
-
-
+    
 
 if __name__ == "__main__":
 
@@ -497,6 +445,7 @@ if __name__ == "__main__":
 
         # Loading fitting parameters dictionaries
         spec_smooth_dict, spec_iter_dict, rv_thresholds_dict = fiting_parameters()
+        calientes, frias = tipos_estrella()
 
         # Analyzing each spectrum
         for spect_pos, spec_name in enumerate(spectrum_list):
@@ -507,3 +456,4 @@ if __name__ == "__main__":
 
         spec_smooth_dict, spec_iter_dict, rv_thresholds_dict = fiting_parameters()
         main()
+
