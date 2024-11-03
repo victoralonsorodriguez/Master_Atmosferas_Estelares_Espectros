@@ -23,7 +23,7 @@ from py_dict_wavelenght import wl_lines
 
 '''#-----CODE-----#'''
 
-def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=None, points=None):
+def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=None, points=None, peaks=[],lines_dict=None):
     """
     Receives the intensity and wavelength data and makes a plot.
 
@@ -78,21 +78,37 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     if continuum is not None:
         plt.plot(wl_values, continuum, "green", linewidth=0.7)
 
-    wl_lines_keys = wl_lines_dict.keys()
+    #wl_lines_keys = wl_lines_dict.keys()
+
+    lines_dict_plot = wl_lines_dict
+
+    if lines_dict is not None:
+        
+        lines_dict_plot = lines_dict
+        
     
+    lines_dict_plot_keys = lines_dict_plot.keys()
+        
     colours = ['indianred','red','orange','yellow','lime','green','cyan',
                'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson', 'red']
 
     plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
 
     if 'normalized' in path:
-        for key_pos,key in enumerate(wl_lines_keys):
-
-            plt.vlines(x=wl_lines_dict[key], ymin=min(it_values), ymax=max(it_values),color=colours[key_pos],label=key,linewidth=0.7)
+        for key_pos,key in enumerate(lines_dict_plot_keys):
             
-            for wavelength in wl_lines_dict[key]:
+            plt.vlines(x=lines_dict_plot[key], ymin=min(it_values), ymax=max(it_values),color=colours[key_pos],label=key,linewidth=0.7)
+            
+            for wavelength in lines_dict_plot[key]:
                 plt.annotate(key, xy=(wavelength, 1), xycoords=("data", "axes fraction"),va='bottom', ha='center', color=colours[key_pos])
                 plt.axvline(x=wavelength, color=colours[key_pos],linewidth=0.7)
+
+        if len(peaks) != 0:
+            wl_values_peaks = wl_values[peaks]
+            it_values_peaks = it_values[peaks]
+
+            plt.scatter(wl_values_peaks,it_values_peaks,s=10,marker='.')
+
         plt.legend(loc='lower right')    
         plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
         
@@ -104,6 +120,31 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     #plt.close()
 
 
+def finding_peaks(wl_values, it_values, window_size_factor=450):
+
+    '''
+    Receives intensity and wavelength data of an spectrum and searches
+    for the peaks
+
+    '''
+
+    # Resolution of the spectrum:
+    resolution = abs(wl_values[1]-wl_values[0])
+    
+    # Frequency values:
+    nu_values = 3e+8/(wl_values*10**-10) # Hz
+    
+    # When looking for the maxima, a window of a certain size will be used. This size 
+    # is chosen considering the typical width of a line in the spectrum:
+    typical_width_freq = 10e+9
+    typical_width_wl = (typical_width_freq*3e+8/((max(nu_values))**2))*10**10
+    # Window size:
+    window_size = window_size_factor*typical_width_wl/resolution
+    
+    #Peaks are selected:
+    peaks, _ = find_peaks(it_values, distance=window_size)
+
+    return peaks
     
     
 def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
@@ -131,22 +172,11 @@ def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
     to fit the continuum.
 
     """
-    # Resolution of the spectrum:
-    resolution = abs(wl_values[1]-wl_values[0])
-    
-    # Frequency values:
-    nu_values = 3e+8/(wl_values*10**-10) # Hz
-    
-    # When looking for the maxima, a window of a certain size will be used. This size 
-    # is chosen considering the typical width of a line in the spectrum:
-    typical_width_freq = 10e+9
-    typical_width_wl = (typical_width_freq*3e+8/((max(nu_values))**2))*10**10
-    # Window size:
-    window_size = 450*typical_width_wl/resolution
-    
-    #Peaks are selected:
-    peaks, _ = find_peaks(it_values, distance=window_size)
-    
+
+    # Finding the peaks
+    peaks = finding_peaks(wl_values, it_values)
+
+    # Fitting the continuum
     for i in range(filter_iterations):
         
         # Wavelength and intensity values for the peaks:
@@ -231,7 +261,100 @@ def radialv_correct(wl_values, it_values, rv_threshold):
     
     return corrected_wl_values
     
+
+def matching_lines(wl_values, it_values,lines_dict):
+
+    '''
+    Function to match the theorical lines with the spectrum
+    '''
+
+    # 1. Seleccionar los minimos
+    # 2. Comprobar que peaks corresponden con lineas
+    # 3. Refinar el match cteniendo en cuenta criterios de altura de las lineas
+    # 4. Seleccionar las keys de las lineas
+
+    # Finding the peaks
+    peaks_all = finding_peaks(wl_values, -it_values,window_size_factor=20)
+
+    # Selecting peaks in a range around linea wavelength
+    wl_deviation = 0.75 # nm
+
+    peaks_range = []
+    wl_lines_keys = lines_dict.keys()
+
+    for key_pos,key in enumerate(wl_lines_keys):
+        for line_wl in lines_dict[key]:
+            for peak_num in peaks_all:
+                if line_wl-wl_deviation<wl_values[peak_num] and wl_values[peak_num]<line_wl+wl_deviation:
+
+                    peaks_range.append(peak_num)
+
+    # Obtaining a mask from standard deviation
+    clipped_int = sigma_clip(it_values[peaks_range], sigma=0.5, cenfunc='median',masked=True) 
+    peaks_sigma_mask = np.ma.getmask(clipped_int)
+
+    peaks_sigma = (np.array(peaks_range))[peaks_sigma_mask]
+
+    # Selecting peaks below the mean intensity value
+    peaks_below = []
+
+    for peak_num in peaks_sigma:      
+        if it_values[peak_num] < (np.mean(it_values)-0.1*np.mean(it_values)):
+            
+            peaks_below.append(peak_num)
+
+    new_lines_dict = {}
+
+    # Selecting the keys and values to plot
+    for key_pos,key in enumerate(wl_lines_keys):
+        for line_wl in lines_dict[key]:
+            for peak_num in peaks_below:
+                if line_wl-wl_deviation<wl_values[peak_num] and wl_values[peak_num]<line_wl+wl_deviation:
+                    
+                    if key not in new_lines_dict:
+                        new_lines_dict[key] = [line_wl]
+                    else:
+                        if line_wl not in new_lines_dict[key]:
+                            new_lines_dict[key].append(line_wl)
     
+                    
+    # Peaks selected that matched the lines
+    peaks = peaks_below
+    lines_dict = new_lines_dict
+
+    return peaks, lines_dict
+    
+
+
+def equiv_width(wl_values, it_values,peaks,lines_dict):
+
+    '''
+    Function to compute the equivalent width of the matching lines
+    '''
+
+    # 1. Determinar el rango del continuo
+    # 2. Ajustar a una gaussiana junto con una lorentziana
+    # 3. Calcular el area
+    # 4. Calcular la anchura equivalente
+
+    lines_dict_keys = lines_dict.keys()
+
+    continuum_range = 25
+    peaks_range_fit = []
+
+    for key_pos,key in enumerate(lines_dict_keys):
+        for line_wl in lines_dict[key]:
+            for peak_num in peaks:
+                
+                peaks_range_fit.append(wl_values[peak_num-continuum_range:peak_num+continuum_range])
+
+
+   #pdb.set_trace()
+                
+
+
+
+    pass
     
 
 #def main(run_version,spectrum_list,i=None,spec_name=None,spec_smooth_dict=None,spec_iter_dict=None):
@@ -246,7 +369,7 @@ def main():
     """
 
     # Spectrum to analyse
-    if run_version == '-m':
+    if run_version == '-m' or run_version == '-e':
         # User selection
         spec_num = int(input("### Spectrum to be analysed (number): "))
         
@@ -285,7 +408,7 @@ def main():
         print("")
         iterations = int(input("### Indicate number of filtering iterations: "))
     
-    else:
+    elif run_version == '-a' or  run_version == '-e':
         # Automatic selection  of fitting parameters
         smoothing_parameter = spec_smooth_dict[f'{spectrum_name}']
         iterations = spec_iter_dict[f'{spectrum_name}']
@@ -299,11 +422,23 @@ def main():
     plot_spec(wl_values, it_values, os.path.join(dirname, "02_continuum"), continuum=it_continuum)
     
     # Normalized spectrum is produced:
-    #plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
+    plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
 
     # Radial velocity is corrected:
     corrected_wl_values = radialv_correct(wl_values, it_normalized, rv_threshold)
     plot_spec(corrected_wl_values, it_normalized, os.path.join(dirname, "04_normalized_spectrum_RF"))
+
+    # Matching the lines
+    peaks_matched,lines_matched_dict = matching_lines(corrected_wl_values, it_normalized,wl_lines_dict)
+    plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "05_normalized_lines_peaks"))
+    plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "06_normalized_lines_peaks_matched"), peaks=peaks_matched, lines_dict=lines_matched_dict)
+
+    # Obtaining the equivalent width of each matched line
+    equiv_width(corrected_wl_values,it_normalized,peaks_matched,lines_matched_dict)
+
+
+
+
 
 
 if __name__ == "__main__":
@@ -342,4 +477,5 @@ if __name__ == "__main__":
 
     else:
 
+        spec_smooth_dict, spec_iter_dict, rv_thresholds_dict = fiting_parameters()
         main()
