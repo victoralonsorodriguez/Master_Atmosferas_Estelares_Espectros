@@ -6,6 +6,7 @@ import sys
 import pdb
 
 import numpy as np
+import pandas as pd
 
 from scipy.signal import find_peaks
 #from scipy.signal import savgol_filter
@@ -24,7 +25,7 @@ from py_dict_wavelenght import wl_lines
 
 '''#-----CODE-----#'''
 
-def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=None, points=None, peaks=[],lines_dict=None):
+def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=None, points=None, peaks=[],lines_dict=None, hline=[]):
     """
     Receives the intensity and wavelength data and makes a plot.
 
@@ -94,7 +95,7 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     
     lines_dict_plot_keys = lines_dict_plot.keys()
         
-    colours = ['indianred','red','orange','yellow','lime','green','cyan',
+    colours = ['indianred','red','orange','gold','lime','green','cyan',
                'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson', 'red']
 
     plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
@@ -107,6 +108,10 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
             for wavelength in lines_dict_plot[key]:
                 plt.annotate(key, xy=(wavelength, 1), xycoords=("data", "axes fraction"),va='bottom', ha='center', color=colours[key_pos])
                 plt.axvline(x=wavelength, color=colours[key_pos],linewidth=0.7)
+
+        if len(hline) != 0:
+            for line in hline:
+                plt.axhline(y = line, color = 'r', linestyle = '-',linewidth=0.5) 
 
         if len(peaks) != 0:
             wl_values_peaks = wl_values[peaks]
@@ -267,7 +272,7 @@ def radialv_correct(wl_values, it_values, rv_threshold):
     
 
 
-def matching_lines(wl_values, it_values,lines_dict):
+def matching_lines(wl_values, it_values,lines_dict,spectrum_type,path):
 
     '''
     Function to match the theorical lines with the spectrum
@@ -279,10 +284,18 @@ def matching_lines(wl_values, it_values,lines_dict):
     # 4. Seleccionar las keys de las lineas
 
     # Finding the peaks
-    peaks_all = finding_peaks(wl_values, -it_values,window_size_factor=20)
+    peak_min = finding_peaks(wl_values, -it_values,window_size_factor=20)
+    peaks_max = finding_peaks(wl_values, it_values,window_size_factor=20)
+
+    peaks_all = np.concatenate((peak_min, peaks_max))
 
     # Selecting peaks in a range around linea wavelength
-    wl_deviation = 0.75 # nm
+    wl_deviation = 1.5 # nm
+
+    if spectrum_type == 'frias':
+
+        wl_deviation = 0.75
+
 
     peaks_range = []
     wl_lines_keys = lines_dict.keys()
@@ -302,13 +315,21 @@ def matching_lines(wl_values, it_values,lines_dict):
 
     # Selecting peaks below the mean intensity value
     peaks_below = []
+    mtp = 0.015 # mean tolerance parameter
 
-    for peak_num in peaks_sigma:      
-        if it_values[peak_num] < (np.mean(it_values)-0.1*np.mean(it_values)):
-            
+    for peak_num in peaks_all:      
+
+        if spectrum_type=='frias':
+            if it_values[peak_num] < (np.mean(it_values)-(np.mean(it_values))*5*mtp):
+                peaks_below.append(peak_num)
+
+        elif it_values[peak_num] < (np.mean(it_values)-(np.mean(it_values))*mtp) or it_values[peak_num] > (np.mean(it_values)+(np.mean(it_values))*mtp):
             peaks_below.append(peak_num)
 
     new_lines_dict = {}
+
+    # creating the Pandas dataframe to store the line information
+    df = pd.DataFrame(columns = ['Element','Wavelength','Intensity']) 
 
     # Selecting the keys and values to plot
     for key_pos,key in enumerate(wl_lines_keys):
@@ -318,16 +339,39 @@ def matching_lines(wl_values, it_values,lines_dict):
                     
                     if key not in new_lines_dict:
                         new_lines_dict[key] = [line_wl]
+
+                        external_file(key,line_wl,f'{it_values[peak_num]:.3f}',df,path)
+
                     else:
                         if line_wl not in new_lines_dict[key]:
                             new_lines_dict[key].append(line_wl)
-    
+
+                            external_file(key,line_wl,f'{it_values[peak_num]:.3f}',df,path)
+
                     
     # Peaks selected that matched the lines
-    peaks = peaks_below
+    peaks = peaks_all
+    peaks = peaks_range
+
     lines_dict = new_lines_dict
 
     return peaks, lines_dict
+
+
+def external_file(element,wl,it,df,path):
+
+    csv_file = open(f'{path}','w+')
+
+    df.loc[len(df)]=[element,wl,it]
+
+    # Sort the dataframe by element
+    df.sort_values(by=['Element'],ascending=True, inplace=True, ignore_index=True)
+    df_string = df.to_csv(header=True, index=False, sep=',')
+    csv_file.write(df_string)
+    csv_file.close()
+
+
+#------------RUNNING THE CODE------------#
     
 
 #def main(run_version,spectrum_list,i=None,spec_name=None,spec_smooth_dict=None,spec_iter_dict=None):
@@ -370,7 +414,7 @@ def main():
     #########################################################################
     
     # Raw spectrum is plotted:
-    #plot_spec(wl_values, it_values, os.path.join(dirname, "01_raw_spectrum"))
+    plot_spec(wl_values, it_values, os.path.join(dirname, "01_raw_spectrum"))
     
     #########################################################################
     
@@ -382,6 +426,7 @@ def main():
         iterations = int(input("### Indicate number of filtering iterations: "))
     
     elif run_version == '-a' or  run_version == '-e':
+
         # Automatic selection  of fitting parameters
         if spectrum_name in calientes:
             spectrum_type = 'calientes'
@@ -397,23 +442,26 @@ def main():
                                                          filter_iterations=iterations)
     
     # Spectrum with continuum is produced:
-    #plot_spec(wl_values, it_values, os.path.join(dirname, "02_continuum"), continuum=it_continuum)
+    plot_spec(wl_values, it_values, os.path.join(dirname, "02_continuum"), continuum=it_continuum)
     
     # Normalized spectrum is produced:
-    #plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
+    plot_spec(wl_values, it_normalized, os.path.join(dirname, "03_normalized_spectrum"))
 
     # Radial velocity is corrected:
     corrected_wl_values = radialv_correct(wl_values, it_normalized, rv_threshold)
     plot_spec(corrected_wl_values, it_normalized, os.path.join(dirname, "04_normalized_spectrum_RF"))
 
     # Matching the lines
-    peaks_matched,lines_matched_dict = matching_lines(corrected_wl_values, it_normalized,wl_lines_dict)
-    #plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "05_normalized_lines_peaks"))
-    plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "06_normalized_lines_peaks_matched"), peaks=peaks_matched, lines_dict=lines_matched_dict)
+    path = os.path.join(dirname, f"csv_line_information.csv")
+    peaks_matched,lines_matched_dict = matching_lines(corrected_wl_values, it_normalized,wl_lines_dict,spectrum_type,path)
 
-    # Obtaining the equivalent width of each matched line
-    #equiv_width(corrected_wl_values,it_normalized,peaks_matched,lines_matched_dict)
+    mtp = 0.015
+    plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "05_normalized_lines_peaks"),peaks=peaks_matched)
     
+    path = os.path.join(dirname, "06_normalized_lines_matched")
+    plot_spec(corrected_wl_values, it_normalized ,path, lines_dict=lines_matched_dict)
+    
+       
 
     
 
@@ -454,6 +502,7 @@ if __name__ == "__main__":
 
     else:
 
+        calientes, frias = tipos_estrella()
         spec_smooth_dict, spec_iter_dict, rv_thresholds_dict = fiting_parameters()
         main()
 
