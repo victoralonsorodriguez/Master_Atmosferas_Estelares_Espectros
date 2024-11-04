@@ -129,7 +129,7 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     
     #plt.close()
 
-def spec_tower(norm_specs, path, color="black", names=None, annotation_wl=None,lines_dict=None):
+def spec_tower(norm_specs, path, color="black", names=None, annotation_wl=None,lines_dict=None, factor=3):
     """
     Receives several normalized spectra and plots them on top of each other
 
@@ -176,11 +176,11 @@ def spec_tower(norm_specs, path, color="black", names=None, annotation_wl=None,l
     # Figure is created:
     plt.figure(figsize=(8,3))
     for i,spec in enumerate(norm_specs):
-        plt.plot(spec[0], spec[1]+i/3, color='blue' if i==0 else color, linewidth=0.6 if i==0 else 0.3)
+        plt.plot(spec[0], spec[1]+i/factor, color='blue' if i==0 else color, linewidth=0.6 if i==0 else 0.3)
         
         if names is not None:
-            plt.annotate(names[i], xy=(annotation_wl , 1+i/3+0.1), 
-                 fontsize=12, fontweight='bold', color='darkblue',
+            plt.annotate(names[i], xy=(annotation_wl , 1+i/factor+0.1+1/(11*factor)), 
+                 fontsize=12, fontweight='bold', color='blue' if i==0 else color,
                  ha='left', va='top', backgroundcolor="white", bbox=None)
     plt.xlim(min(norm_specs[1][0]), max(norm_specs[1][0]))
     #plt.ylim(-1,6)
@@ -578,7 +578,214 @@ def main():
             norm_specs.append((xx,yy))
             #print(ref)
             names.append(ref[2:-4])
-        spec_tower(norm_specs, os.path.join(dirname, "07_referencia_espectral"), names=names, annotation_wl=4490)
+        spec_tower(norm_specs, os.path.join(dirname, "07_referencia_espectral"), names=names, annotation_wl=4490, lines_dict=lines_matched_dict)
+        
+    ######################################################################################################
+    # Para producir el plot con las estrellas de referencia para el tipo de luminosidad Si IV 4116/He I 4121
+    ######################################################################################################
+    if spectrum_name == "EstrellaProblema1.dat": # La estrella caliente tipo O
+        wl_min=4300
+        wl_max=4510
+        # Estrellas de referencia para el tipo espectral:
+        referencias_o_lum = [x for x in os.listdir("Referencias_O_luminosidad") if ".dat" in x]
+        sorted_ref = sorted(referencias_o_lum , key=lambda x: int(x.split("_")[0]))
+        espectro_problema = (corrected_wl_values[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)],
+                             it_normalized[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)])
+        norm_specs =[espectro_problema]
+        names = ["Estrella problema 1"]
+        for ref in sorted_ref:
+            # Loading data:
+            data = np.loadtxt(os.path.join("Referencias_O_luminosidad", ref))
+            ref_wl_values = data[:,0] # Angstrons
+            ref_it_values = data[:,1] # arbitrary units
+            # Radial velocity is corrected:
+            corrected_ref_wl_values = radialv_correct(ref_wl_values, ref_it_values, rv_threshold)
+            
+            # Valores de intensidad en el rango 4460-4560, para ver las lineas 4471 HeI / 4541 HeII:
+            xx = corrected_ref_wl_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            yy = ref_it_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            norm_specs.append((xx,yy))
+            #print(ref)
+            names.append(ref[2:-4])
+        spec_tower(norm_specs, os.path.join(dirname, "08_referencia_luminosidad"), names=names, annotation_wl=4350, lines_dict=lines_matched_dict)
+    
+    ######################################################################################################
+    # Para producir el plot con las estrellas de referencia para el tipo de luminosidad H I
+    ######################################################################################################
+    if spectrum_name == "EstrellaProblema1.dat": # La estrella caliente tipo O
+        wl_min=5650
+        wl_max=5750
+        # Estrellas de referencia para el tipo espectral:
+        referencias_o_lum = [x for x in os.listdir("Referencias_O_luminosidad") if ".dat" in x]
+        sorted_ref = sorted(referencias_o_lum , key=lambda x: int(x.split("_")[0]))
+        espectro_problema = (corrected_wl_values[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)],
+                             it_normalized[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)])
+        norm_specs =[espectro_problema]
+        names = ["Estrella problema 1"]
+        for ref in sorted_ref:
+            # Loading data:
+            data = np.loadtxt(os.path.join("Referencias_O_luminosidad", ref))
+            ref_wl_values = data[:,0] # Angstrons
+            ref_it_values = data[:,1] # arbitrary units
+            # Radial velocity is corrected:
+            corrected_ref_wl_values = radialv_correct(ref_wl_values, ref_it_values, rv_threshold)
+            
+            # Valores de intensidad en el rango 4460-4560, para ver las lineas 4471 HeI / 4541 HeII:
+            xx = corrected_ref_wl_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            yy = ref_it_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            norm_specs.append((xx,yy))
+            #print(ref)
+            names.append(ref[2:-4])
+        spec_tower(norm_specs, os.path.join(dirname, "09_referencia_luminosidad"), names=names, annotation_wl=5670, lines_dict=lines_matched_dict)
+    
+        
+    ######################################################################################################
+    # Para producir el plot con las estrellas de referencia para el tipo de luminosidad H I
+    ######################################################################################################
+    if spectrum_name == "EstrellaProblema1.dat": # La estrella caliente tipo O
+        wl_min=4600
+        wl_max=4700
+        # Estrellas de referencia para el tipo espectral:
+        referencias_o_lum = [x for x in os.listdir("Referencias_O_luminosidad") if ".dat" in x]
+        sorted_ref = sorted(referencias_o_lum , key=lambda x: int(x.split("_")[0]))
+        espectro_problema = (corrected_wl_values[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)],
+                             it_normalized[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)])
+        norm_specs =[espectro_problema]
+        names = ["Estrella problema 1"]
+        for ref in sorted_ref:
+            # Loading data:
+            data = np.loadtxt(os.path.join("Referencias_O_luminosidad", ref))
+            ref_wl_values = data[:,0] # Angstrons
+            ref_it_values = data[:,1] # arbitrary units
+            # Radial velocity is corrected:
+            corrected_ref_wl_values = radialv_correct(ref_wl_values, ref_it_values, rv_threshold)
+            
+            # Valores de intensidad en el rango 4460-4560, para ver las lineas 4471 HeI / 4541 HeII:
+            xx = corrected_ref_wl_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            yy = ref_it_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            norm_specs.append((xx,yy))
+            #print(ref)
+            names.append(ref[2:-4])
+        spec_tower(norm_specs, os.path.join(dirname, "10_referencia_luminosidad"), names=names, annotation_wl=4650, lines_dict=lines_matched_dict)
+        
+    ######################################################################################################
+    # Para producir el plot con las estrellas de referencia para el tipo de luminosidad H I
+    ######################################################################################################
+    if spectrum_name == "EstrellaProblema1.dat": # La estrella caliente tipo O
+        wl_min=4080
+        wl_max=4130
+        # Estrellas de referencia para el tipo espectral:
+        referencias_o_lum = [x for x in os.listdir("Referencias_O_luminosidad") if ".dat" in x]
+        sorted_ref = sorted(referencias_o_lum , key=lambda x: int(x.split("_")[0]))
+        espectro_problema = (corrected_wl_values[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)],
+                             it_normalized[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)])
+        norm_specs =[espectro_problema]
+        names = ["Estrella problema 1"]
+        for ref in sorted_ref:
+            # Loading data:
+            data = np.loadtxt(os.path.join("Referencias_O_luminosidad", ref))
+            ref_wl_values = data[:,0] # Angstrons
+            ref_it_values = data[:,1] # arbitrary units
+            # Radial velocity is corrected:
+            corrected_ref_wl_values = radialv_correct(ref_wl_values, ref_it_values, rv_threshold)
+            
+            # Valores de intensidad en el rango 4460-4560, para ver las lineas 4471 HeI / 4541 HeII:
+            xx = corrected_ref_wl_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            yy = ref_it_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            norm_specs.append((xx,yy))
+            #print(ref)
+            names.append(ref[2:-4])
+        spec_tower(norm_specs, os.path.join(dirname, "11_referencia_luminosidad"), names=names, annotation_wl=4081, lines_dict=lines_matched_dict)
+
+        
+    ######################################################################################################
+    # Para producir el plot con las estrellas de referencia para el tipo espectral
+    ######################################################################################################
+    if spectrum_name == "EstrellaProblema2.dat": # La estrella caliente tipo O
+        wl_min=4040
+        wl_max=4120
+        # Estrellas de referencia para el tipo espectral:
+        referencias_o_lum = [x for x in os.listdir("Referencias_G_espectral") if ".dat" in x]
+        sorted_ref = sorted(referencias_o_lum , key=lambda x: int(x.split("_")[0]))
+        espectro_problema = (corrected_wl_values[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)],
+                             it_normalized[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)])
+        norm_specs =[espectro_problema]
+        names = ["Estrella problema 2"]
+        for ref in sorted_ref:
+            # Loading data:
+            data = np.loadtxt(os.path.join("Referencias_G_espectral", ref))
+            ref_wl_values = data[:,0] # Angstrons
+            ref_it_values = data[:,1] # arbitrary units
+            # Radial velocity is corrected:
+            corrected_ref_wl_values = radialv_correct(ref_wl_values, ref_it_values, rv_threshold)
+            
+            # Valores de intensidad en el rango 4460-4560, para ver las lineas 4471 HeI / 4541 HeII:
+            xx = corrected_ref_wl_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            yy = ref_it_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            norm_specs.append((xx,yy))
+            #print(ref)
+            names.append(ref[2:-4])
+        spec_tower(norm_specs, os.path.join(dirname, "07_referencia_espectral"), names=names, annotation_wl=4050, lines_dict=lines_matched_dict, factor=1)
+        
+    ######################################################################################################
+    # Para producir el plot con las estrellas de referencia para el tipo espectral
+    ######################################################################################################
+    if spectrum_name == "EstrellaProblema2.dat": # La estrella caliente tipo O
+        wl_min=3900
+        wl_max=4100
+        # Estrellas de referencia para el tipo espectral:
+        referencias_o_lum = [x for x in os.listdir("Referencias_G_espectral") if ".dat" in x]
+        sorted_ref = sorted(referencias_o_lum , key=lambda x: int(x.split("_")[0]))
+        espectro_problema = (corrected_wl_values[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)],
+                             it_normalized[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)])
+        norm_specs =[espectro_problema]
+        names = ["Estrella problema 2"]
+        for ref in sorted_ref:
+            # Loading data:
+            data = np.loadtxt(os.path.join("Referencias_G_espectral", ref))
+            ref_wl_values = data[:,0] # Angstrons
+            ref_it_values = data[:,1] # arbitrary units
+            # Radial velocity is corrected:
+            corrected_ref_wl_values = radialv_correct(ref_wl_values, ref_it_values, rv_threshold)
+            
+            # Valores de intensidad en el rango 4460-4560, para ver las lineas 4471 HeI / 4541 HeII:
+            xx = corrected_ref_wl_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            yy = ref_it_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            norm_specs.append((xx,yy))
+            #print(ref)
+            names.append(ref[2:-4])
+        spec_tower(norm_specs, os.path.join(dirname, "08_referencia_espectral"), names=names, annotation_wl=3950, lines_dict=lines_matched_dict, factor=1)
+
+    ######################################################################################################
+    # Para producir el plot con las estrellas de referencia para el tipo espectral. banda G
+    ######################################################################################################
+    if spectrum_name == "EstrellaProblema2.dat": # La estrella caliente tipo O
+        wl_min=3900
+        wl_max=4500
+        # Estrellas de referencia para el tipo espectral:
+        referencias_o_lum = [x for x in os.listdir("Referencias_G_espectral") if ".dat" in x]
+        sorted_ref = sorted(referencias_o_lum , key=lambda x: int(x.split("_")[0]))
+        espectro_problema = (corrected_wl_values[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)],
+                             it_normalized[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)])
+        norm_specs =[espectro_problema]
+        names = ["Estrella problema 2"]
+        for ref in sorted_ref:
+            # Loading data:
+            data = np.loadtxt(os.path.join("Referencias_G_espectral", ref))
+            ref_wl_values = data[:,0] # Angstrons
+            ref_it_values = data[:,1] # arbitrary units
+            # Radial velocity is corrected:
+            corrected_ref_wl_values = radialv_correct(ref_wl_values, ref_it_values, rv_threshold)
+            
+            # Valores de intensidad en el rango 4460-4560, para ver las lineas 4471 HeI / 4541 HeII:
+            xx = corrected_ref_wl_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            yy = ref_it_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+            norm_specs.append((xx,yy))
+            #print(ref)
+            names.append(ref[2:-4])
+            
+        lines = {key: lines_matched_dict[key] for key in ['Ca II', 'H I'] if key in lines_matched_dict}
+        spec_tower(norm_specs, os.path.join(dirname, "09_referencia_espectral"), names=names, annotation_wl=4140, lines_dict=lines, factor=1)
        
 
     
