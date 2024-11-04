@@ -95,7 +95,7 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     
     lines_dict_plot_keys = lines_dict_plot.keys()
         
-    colours = ['indianred','red','orange','gold','lime','green','cyan',
+    colours = ['indianred','red','orange','gold','greenyellow','lime','green','cyan',
                'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson', 'red']
 
     plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
@@ -431,13 +431,13 @@ def matching_lines(wl_values, it_values,lines_dict,spectrum_type,path):
                     if key not in new_lines_dict:
                         new_lines_dict[key] = [line_wl]
 
-                        external_file(key,line_wl,f'{it_values[peak_num]:.3f}',df,path)
+                        external_file(key,f'{line_wl:.3f}',f'{it_values[peak_num]:.3f}',df,path)
 
                     else:
                         if line_wl not in new_lines_dict[key]:
                             new_lines_dict[key].append(line_wl)
 
-                            external_file(key,line_wl,f'{it_values[peak_num]:.3f}',df,path)
+                            external_file(key,f'{line_wl:.3f}',f'{it_values[peak_num]:.3f}',df,path)
 
                     
     # Peaks selected that matched the lines
