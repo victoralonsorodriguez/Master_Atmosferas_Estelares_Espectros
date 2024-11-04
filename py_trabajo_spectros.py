@@ -25,7 +25,7 @@ from py_dict_wavelenght import wl_lines
 
 '''#-----CODE-----#'''
 
-def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=None, points=None, peaks=[],lines_dict=None, hline=[]):
+def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=None, points=None, peaks=[],lines_dict=None, hline=[], wl_range=None):
     """
     Receives the intensity and wavelength data and makes a plot.
 
@@ -60,6 +60,7 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     # Enable LaTeX rendering
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')  # Use a serif font for LaTeX rendering
+    plt.rc('font', size=16)  # Adjust size to your preference
     # Define the LaTeX preamble with siunitx
     plt.rcParams['text.latex.preamble'] = r'''
                 \usepackage{siunitx}
@@ -73,9 +74,13 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
                 \DeclareSIUnit{\cts}{cts}
                 '''
     # Figure is created:
-    plt.figure(figsize=(8,3))
+    plt.figure(figsize=(9,3))
     plt.plot(wl_values, it_values, color=color, linewidth=0.3)
+    if wl_range is not None:
+        plt.xlim(wl_range)
     #plt.fill_between(wl_values, it_values, 0, color=color, alpha=0.2, edgecolor=None)
+    plt.xlabel(r'$\lambda / \unit{\angstrom}$', fontsize=16)
+    plt.ylabel(r'$Intensidad$ / a.u.', fontsize=16)
     
     if continuum is not None:
         plt.plot(wl_values, continuum, "green", linewidth=0.7)
@@ -119,7 +124,7 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
 
             plt.scatter(wl_values_peaks,it_values_peaks,s=10,marker='.')
 
-        plt.legend(loc='lower right')    
+        #plt.legend(loc='lower right')    
         plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
         
     plt.show()
