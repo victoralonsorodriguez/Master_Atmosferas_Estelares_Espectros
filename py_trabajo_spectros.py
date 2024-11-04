@@ -7,6 +7,10 @@ import pdb
 
 import numpy as np
 import pandas as pd
+pd.set_option('mode.chained_assignment', None)
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from scipy.signal import find_peaks
 #from scipy.signal import savgol_filter
