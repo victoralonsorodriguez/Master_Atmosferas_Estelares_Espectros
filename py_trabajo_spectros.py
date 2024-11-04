@@ -129,6 +129,97 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     
     #plt.close()
 
+def spec_tower(norm_specs, path, color="black", names=None, annotation_wl=None,lines_dict=None):
+    """
+    Receives several normalized spectra and plots them on top of each other
+
+    Parameters
+    ----------
+    norm_specs: list
+        List of tuples, each one corresponding to a spectrum (wl, intensity)
+        
+    path : str
+        Path of the figure that will be produced and saved.
+    
+    color : str
+        Color of the plot.
+    
+    continuum : 
+        Fit to the continuum.
+        
+    lines : 
+        Set of spectral lines to be plotted on top of the spectrum.
+    
+    points : tuple
+        Set of points used in the fit.
+
+    Returns
+    -------
+    None.
+
+    """
+    # Enable LaTeX rendering
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')  # Use a serif font for LaTeX rendering
+    # Define the LaTeX preamble with siunitx
+    plt.rcParams['text.latex.preamble'] = r'''
+                \usepackage{siunitx}
+                \sisetup{
+                  detect-family,
+                  separate-uncertainty=true,
+                  output-decimal-marker={.},
+                  exponent-product=\cdot,
+                  inter-unit-product=\cdot,
+                }
+                \DeclareSIUnit{\cts}{cts}
+                '''
+    # Figure is created:
+    plt.figure(figsize=(8,3))
+    for i,spec in enumerate(norm_specs):
+        plt.plot(spec[0], spec[1]+i/3, color='blue' if i==0 else color, linewidth=0.6 if i==0 else 0.3)
+        
+        if names is not None:
+            plt.annotate(names[i], xy=(annotation_wl , 1+i/3+0.1), 
+                 fontsize=12, fontweight='bold', color='darkblue',
+                 ha='left', va='top', backgroundcolor="white", bbox=None)
+    plt.xlim(min(norm_specs[1][0]), max(norm_specs[1][0]))
+    #plt.ylim(-1,6)
+
+    
+
+    if lines_dict is not None:
+        
+        lines_dict_plot = lines_dict
+    
+    else:
+        lines_dict_plot = wl_lines_dict
+        
+        
+    
+    lines_dict_plot_keys = lines_dict_plot.keys()
+        
+    colours = ['indianred','red','orange','yellow','lime','green','cyan',
+               'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson', 'red']
+
+    plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
+
+    if 'normalized' in path or 'referencia' in path:
+        for key_pos,key in enumerate(lines_dict_plot_keys):
+            
+            for wavelength in lines_dict_plot[key]:
+                plt.annotate(key, xy=(wavelength, 1), xycoords=("data", "axes fraction"),va='bottom', ha='center', color=colours[key_pos])
+                plt.axvline(x=wavelength, color=colours[key_pos],linewidth=0.7)
+
+
+        plt.legend(loc='lower right')    
+        plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
+        
+    plt.show()
+
+    # Save image as SVG
+    #plt.savefig(f'{path}.svg', format='svg')
+    
+    #plt.close()
 
 def finding_peaks(wl_values, it_values, window_size_factor=450):
 
@@ -460,7 +551,34 @@ def main():
     
     path = os.path.join(dirname, "06_normalized_lines_matched")
     plot_spec(corrected_wl_values, it_normalized ,path, lines_dict=lines_matched_dict)
+
     
+    ######################################################################################################
+    # Para producir el plot con las estrellas de referencia para el tipo espectral. 4471 HeI / 4541 HeII #
+    ######################################################################################################
+    if spectrum_name == "EstrellaProblema1.dat": # La estrella caliente tipo O
+        # Estrellas de referencia para el tipo espectral:
+        referencias_o_spectral = [x for x in os.listdir("Referencias_O_espectral") if ".dat" in x]
+        sorted_ref = sorted(referencias_o_spectral , key=lambda x: int(x.split("_")[0]))
+        espectro_problema = (corrected_wl_values[(corrected_wl_values >= 4460) & (corrected_wl_values <= 4560)],
+                             it_normalized[(corrected_wl_values >= 4460) & (corrected_wl_values <= 4560)])
+        norm_specs =[espectro_problema]
+        names = ["Estrella problema 1"]
+        for ref in sorted_ref:
+            # Loading data:
+            data = np.loadtxt(os.path.join("Referencias_O_espectral", ref))
+            ref_wl_values = data[:,0] # Angstrons
+            ref_it_values = data[:,1] # arbitrary units
+            # Radial velocity is corrected:
+            corrected_ref_wl_values = radialv_correct(ref_wl_values, ref_it_values, rv_threshold)
+            
+            # Valores de intensidad en el rango 4460-4560, para ver las lineas 4471 HeI / 4541 HeII:
+            xx = corrected_ref_wl_values[(corrected_ref_wl_values >= 4460) & (corrected_ref_wl_values <= 4560)]
+            yy = ref_it_values[(corrected_ref_wl_values >= 4460) & (corrected_ref_wl_values <= 4560)]
+            norm_specs.append((xx,yy))
+            #print(ref)
+            names.append(ref[2:-4])
+        spec_tower(norm_specs, os.path.join(dirname, "07_referencia_espectral"), names=names, annotation_wl=4490)
        
 
     
