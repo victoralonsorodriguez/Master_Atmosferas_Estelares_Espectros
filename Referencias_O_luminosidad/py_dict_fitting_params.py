@@ -32,14 +32,6 @@ def tipos_estrella():
                 ]
     
     frias = ['EstrellaProblema2.dat',
-             '1_HD141004_G0V.dat',
-             '2_HD209750_G2I.dat',
-             '3_HD50806_G5V.dat',
-             '4_HD101501_G8V.dat',
-             '5_HD48329_G8I.dat',
-             '6_HD3651_K0V.dat',
-             '7_HD200905_K4.5I.dat',
-             '8_HD201091_K5V.dat'
             ]
 
     return calientes, frias

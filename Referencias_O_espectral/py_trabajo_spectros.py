@@ -631,10 +631,6 @@ def main():
         plot_spec(corrected_wl_values, it_normalized, os.path.join(dirname, "04_normalized_spectrum_RF"))
 
     # Matching the lines
-<<<<<<< HEAD
-    peaks_matched,lines_matched_dict = matching_lines(corrected_wl_values, it_normalized,wl_lines_dict)
-    plot_spec(corrected_wl_values, it_normalized ,os.path.join(dirname, "05_normalized_lines_peaks_matched"), peaks=peaks_matched, lines_dict=lines_matched_dict)
-=======
     path = os.path.join(dirname, f"csv_line_information.csv")
     peaks_matched,lines_matched_dict = matching_lines(corrected_wl_values, it_normalized,wl_lines_dict,spectrum_type,path)
 
@@ -931,7 +927,6 @@ def main():
 
 
 
->>>>>>> origin/main
 
 
 
