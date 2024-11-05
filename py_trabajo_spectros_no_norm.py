@@ -7,6 +7,10 @@ import pdb
 
 import numpy as np
 import pandas as pd
+pd.set_option('mode.chained_assignment', None)
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from scipy.signal import find_peaks
 #from scipy.signal import savgol_filter
@@ -257,68 +261,6 @@ def finding_peaks(wl_values, it_values, window_size_factor=450):
 
     return peaks
 
-    
-def norm_spec(wl_values, it_values, filter_iterations=3, s=0.01):
-    """
-    Receives intensity and wavelength data of an spectrum and fits a function to the 
-    continuum.
-    
-    Parameters
-    ----------
-    wl_values : np.array
-        Wavelength values.
-        
-    it_values : np.array
-        Intensity values.
-    
-    filter_iterations : int
-        Number of iterations for the maxima filtering process.
-    
-    s : float
-        Positive smoothing factor used in UnivariateSpline.
-
-    Returns
-    -------
-    Intensity of the continuum, normalized intensity and the indexes of the maxima used
-    to fit the continuum.
-
-    """
-    # Finding the peaks
-    peaks = finding_peaks(wl_values, it_values)
-
-    # Fitting the continuum
-    for i in range(filter_iterations):
-        
-        # Wavelength and intensity values for the peaks:
-        wl_values_peaks = wl_values[peaks]
-        it_values_peaks = it_values[peaks]
-    
-        # A polinomium is fitted:
-        fitted_pol = np.polyfit(wl_values_peaks,it_values_peaks,4)
-        # Intensity values of the provisional continuum:
-        fitted_intensity = np.polyval(fitted_pol,wl_values)
-        
-        if i<filter_iterations-1:
-            # Calculate the difference between maxima and fitted continuum:
-            difference = it_values_peaks - fitted_intensity[peaks]
-            
-            # Asymetric sigma clipping to filter the peaks, removing the ones
-            # far from the fitted polynomium
-            clipped_differences = sigma_clip(difference, sigma_upper=3, sigma_lower=3)  # Change sigma value as needed
-            # Keep only the maxima that pass the sigma clipping
-            peaks = peaks[~clipped_differences.mask]
-            wl_values_peaks = wl_values[peaks]
-            it_values_peaks = it_values[peaks]
-    
-    # Definitive cubic spline fit:
-    cs = UnivariateSpline(wl_values_peaks, it_values_peaks, k=3, s=s)
-    # Intensity of the continuum
-    continuum_it = cs(wl_values)
-    # Normalized intensities:
-    normalized_it = it_values/continuum_it
-    
-    return continuum_it, normalized_it, peaks
-
 
 
 def radialv_correct(wl_values, it_values, rv_threshold):
@@ -378,7 +320,7 @@ def matching_lines(wl_values, it_values,lines_dict,spectrum_type,path):
     '''
     Function to match the theorical lines with the spectrum
     '''
-
+    
     # 1. Seleccionar los minimos
     # 2. Comprobar que peaks corresponden con lineas
     # 3. Refinar el match cteniendo en cuenta criterios de altura de las lineas
@@ -394,9 +336,7 @@ def matching_lines(wl_values, it_values,lines_dict,spectrum_type,path):
     wl_deviation = 1.5 # nm
 
     if spectrum_type == 'frias':
-
         wl_deviation = 0.75
-
 
     peaks_range = []
     wl_lines_keys = lines_dict.keys()
@@ -417,30 +357,33 @@ def matching_lines(wl_values, it_values,lines_dict,spectrum_type,path):
     # Selecting peaks below the mean intensity value
     peaks_below = []
     mtp = 0.015 # mean tolerance parameter
+    it_mean = np.nanmean(it_values)
 
     for peak_num in peaks_all:      
 
         if spectrum_type=='frias':
-            if it_values[peak_num] < (np.mean(it_values)-(np.mean(it_values))*5*mtp):
+            if it_values[peak_num] < (it_mean-it_mean*5*mtp):
                 peaks_below.append(peak_num)
 
-        elif it_values[peak_num] < (np.mean(it_values)-(np.mean(it_values))*mtp) or it_values[peak_num] > (np.mean(it_values)+(np.mean(it_values))*mtp):
-            peaks_below.append(peak_num)
+        elif spectrum_type=='calientes':
+            if it_values[peak_num] < (it_mean-it_mean*mtp) or it_values[peak_num] > (it_mean+it_mean*mtp):
+                peaks_below.append(peak_num)
 
     new_lines_dict = {}
 
     # creating the Pandas dataframe to store the line information
     df = pd.DataFrame(columns = ['Element','Wavelength','Intensity']) 
 
+    
     # Selecting the keys and values to plot
     for key_pos,key in enumerate(wl_lines_keys):
         for line_wl in lines_dict[key][:-1]:
-            for peak_num in peaks_below:
+            for peak_num in peaks_below:   
                 if line_wl-wl_deviation<wl_values[peak_num] and wl_values[peak_num]<line_wl+wl_deviation:
-                    
+
                     if key not in new_lines_dict:
                         new_lines_dict[key] = [line_wl]
-
+                        
                         lines_info(key,f'{line_wl:.3f}',f'{it_values[peak_num]:.3f}',df,path)
 
                     else:
@@ -451,8 +394,7 @@ def matching_lines(wl_values, it_values,lines_dict,spectrum_type,path):
                             
         if key in new_lines_dict:
             new_lines_dict[key].append(lines_dict[key][-1])
-
-                    
+               
     # Peaks selected that matched the lines
     peaks = peaks_all
     peaks = peaks_range
@@ -529,7 +471,6 @@ def lines_ratio(path,out_path):
             # For the ratio with themselves the cell is empty
             if col == row:
                 df_rat[col][row] = ''
-
 
     # Creating the file for the dataframe
     csv_file = open(f'{out_path}','w+')
@@ -611,8 +552,7 @@ def main():
         iterations = spec_iter_dict[f'{spectrum_type}']
         rv_threshold = rv_thresholds_dict[f'{spectrum_type}']
     
-    
-    
+  
     # Radial velocity is corrected:
     corrected_wl_values = radialv_correct(wl_values, it_values, rv_threshold)
     if plot == True:
@@ -621,19 +561,16 @@ def main():
     # Matching the lines
     path = os.path.join(dirname, f"csv_line_information.csv")
     peaks_matched,lines_matched_dict = matching_lines(corrected_wl_values, it_values,wl_lines_dict,spectrum_type,path)
-    out_path = os.path.join(dirname, f"csv_line_ratios.csv")
-    lines_ratio(path,out_path)
 
     if plot == True:
         plot_spec(corrected_wl_values, it_values ,os.path.join(dirname, "05_normalized_lines_peaks"),peaks=peaks_matched)
+
+    out_path = os.path.join(dirname, f"csv_line_ratios.csv")
+    lines_ratio(path,out_path)
     
     if plot == True:
         path = os.path.join(dirname, "06_normalized_lines_matched")
         plot_spec(corrected_wl_values, it_values ,path, lines_dict=lines_matched_dict)
-
-
-    
-
 
 
 if __name__ == "__main__":
