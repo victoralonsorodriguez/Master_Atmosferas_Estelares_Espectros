@@ -7,10 +7,6 @@ import pdb
 
 import numpy as np
 import pandas as pd
-pd.set_option('mode.chained_assignment', None)
-
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from scipy.signal import find_peaks
 #from scipy.signal import savgol_filter
@@ -104,17 +100,17 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     
     lines_dict_plot_keys = lines_dict_plot.keys()
         
-    colours = ['indianred','red','orange','gold','greenyellow','lime','green','cyan',
-               'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson', 'red']
+    colours = [lines_dict_plot[key][-1] for key in lines_dict_plot]
+
 
     plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
 
     if 'normalized' in path:
         for key_pos,key in enumerate(lines_dict_plot_keys):
             
-            plt.vlines(x=lines_dict_plot[key], ymin=min(it_values), ymax=max(it_values),color=colours[key_pos],label=key,linewidth=0.7)
+            plt.vlines(x=lines_dict_plot[key][:-1], ymin=min(it_values), ymax=max(it_values),color=colours[key_pos],label=key,linewidth=0.7)
             
-            for wavelength in lines_dict_plot[key]:
+            for wavelength in lines_dict_plot[key][:-1]:
                 plt.annotate(key, xy=(wavelength, 1), xycoords=("data", "axes fraction"),va='bottom', ha='center', color=colours[key_pos])
                 plt.axvline(x=wavelength, color=colours[key_pos],linewidth=0.7)
 
@@ -138,7 +134,7 @@ def plot_spec(wl_values, it_values, path, color="black", continuum=None, lines=N
     
     #plt.close()
 
-def spec_tower(norm_specs, path, color="black", names=None, annotation_wl=None,lines_dict=None, factor=3):
+def spec_tower(norm_specs, path, color="black", names=None, annotation_wl=None,lines_dict=None, factor=3, g_band=False):
     """
     Receives several normalized spectra and plots them on top of each other
 
@@ -184,6 +180,9 @@ def spec_tower(norm_specs, path, color="black", names=None, annotation_wl=None,l
                 '''
     # Figure is created:
     plt.figure(figsize=(8,3))
+    plt.xlabel(r'$\lambda / \unit{\angstrom}$', fontsize=20)
+    plt.ylabel(r'$Intensidad$ / a.u.', fontsize=20)
+    plt.yticks([])  # Set empty tick labels for the y-axis
     for i,spec in enumerate(norm_specs):
         plt.plot(spec[0], spec[1]+i/factor, color='blue' if i==0 else color, linewidth=0.6 if i==0 else 0.3)
         
@@ -207,24 +206,26 @@ def spec_tower(norm_specs, path, color="black", names=None, annotation_wl=None,l
     
     lines_dict_plot_keys = lines_dict_plot.keys()
         
-    colours = ['indianred','red','orange','yellow','lime','green','cyan',
-               'dodgerblue','navy','darkviolet','purple','fuchsia','hotpink','crimson', 'red']
+    colours = [lines_dict_plot[key][-1] for key in lines_dict_plot]
 
     plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
 
     if 'normalized' in path or 'referencia' in path:
         for key_pos,key in enumerate(lines_dict_plot_keys):
             
-            for wavelength in lines_dict_plot[key]:
+            for wavelength in lines_dict_plot[key][:-1]:
                 plt.annotate(key, xy=(wavelength, 1), xycoords=("data", "axes fraction"),va='bottom', ha='center', color=colours[key_pos])
                 plt.axvline(x=wavelength, color=colours[key_pos],linewidth=0.7)
 
 
-        plt.legend(loc='lower right')    
+        #plt.legend(loc='lower right')    
         plt.savefig(f'{path}.pdf', dpi=300, format='pdf') 
         
     plt.show()
-
+    
+    if g_band:
+        plt.annotate("G-band", xy=(4308, 1), xycoords=("data", "axes fraction"),va='bottom', ha='center', color="red")
+        plt.axvspan(4308, 4314.5, color="red", alpha=0.3)
     # Save image as SVG
     #plt.savefig(f'{path}.svg', format='svg')
     
@@ -344,7 +345,7 @@ def radialv_correct(wl_values, it_values, rv_threshold):
     # radial velocities computed with different lines will be saved here:
     radial_velocities = []
     # we take HI lines only:
-    lines = wl_lines()['H I']+wl_lines()['He I']+wl_lines()['He II']
+    lines = wl_lines()['H I'][:-1]+wl_lines()['He I'][:-1]+wl_lines()['He II'][:-1]
     
     for rest_wavelength in [wl for wl in lines if wl > 4500]:
         # Range around the rest-frame line where a peak in the observed spectrum will be searched:
@@ -401,7 +402,7 @@ def matching_lines(wl_values, it_values,lines_dict,spectrum_type,path):
     wl_lines_keys = lines_dict.keys()
 
     for key_pos,key in enumerate(wl_lines_keys):
-        for line_wl in lines_dict[key]:
+        for line_wl in lines_dict[key][:-1]:
             for peak_num in peaks_all:
                 if line_wl-wl_deviation<wl_values[peak_num] and wl_values[peak_num]<line_wl+wl_deviation:
 
@@ -433,7 +434,7 @@ def matching_lines(wl_values, it_values,lines_dict,spectrum_type,path):
 
     # Selecting the keys and values to plot
     for key_pos,key in enumerate(wl_lines_keys):
-        for line_wl in lines_dict[key]:
+        for line_wl in lines_dict[key][:-1]:
             for peak_num in peaks_below:
                 if line_wl-wl_deviation<wl_values[peak_num] and wl_values[peak_num]<line_wl+wl_deviation:
                     
@@ -447,6 +448,9 @@ def matching_lines(wl_values, it_values,lines_dict,spectrum_type,path):
                             new_lines_dict[key].append(line_wl)
 
                             lines_info(key,f'{line_wl:.3f}',f'{it_values[peak_num]:.3f}',df,path)
+                            
+        if key in new_lines_dict:
+            new_lines_dict[key].append(lines_dict[key][-1])
 
                     
     # Peaks selected that matched the lines
@@ -698,7 +702,9 @@ def main():
                 norm_specs.append((xx,yy))
                 #print(ref)
                 names.append(ref[2:-4])
-            spec_tower(norm_specs, os.path.join(dirname, "08_referencia_luminosidad"), names=names, annotation_wl=4350, lines_dict=lines_matched_dict)
+            spec_tower(norm_specs, os.path.join(dirname, "08_referencia_luminosidad"), names=names, annotation_wl=4350, 
+                       lines_dict={key: lines_matched_dict[key] for key in ["He I", "H I", "Si IV"] if key in lines_matched_dict}
+                       )
         
         ######################################################################################################
         # Para producir el plot con las estrellas de referencia para el tipo de luminosidad H I
@@ -851,8 +857,39 @@ def main():
         # Para producir el plot con las estrellas de referencia para el tipo espectral. banda G
         ######################################################################################################
         if spectrum_name == "EstrellaProblema2.dat": # La estrella caliente tipo O
-            wl_min=3900
-            wl_max=4500
+            wl_min=4100
+            wl_max=4350
+            # Estrellas de referencia para el tipo espectral:
+            referencias_o_lum = [x for x in os.listdir("Referencias_G_espectral") if ".dat" in x]
+            sorted_ref = sorted(referencias_o_lum , key=lambda x: int(x.split("_")[0]))
+            espectro_problema = (corrected_wl_values[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)],
+                                it_normalized[(corrected_wl_values >= wl_min) & (corrected_wl_values <= wl_max)])
+            norm_specs =[espectro_problema]
+            names = ["Estrella problema 2"]
+            for ref in sorted_ref:
+                # Loading data:
+                data = np.loadtxt(os.path.join("Referencias_G_espectral", ref))
+                ref_wl_values = data[:,0] # Angstrons
+                ref_it_values = data[:,1] # arbitrary units
+                # Radial velocity is corrected:
+                corrected_ref_wl_values = radialv_correct(ref_wl_values, ref_it_values, rv_threshold)
+                
+                # Valores de intensidad en el rango 4460-4560, para ver las lineas 4471 HeI / 4541 HeII:
+                xx = corrected_ref_wl_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+                yy = ref_it_values[(corrected_ref_wl_values >= wl_min) & (corrected_ref_wl_values <= wl_max)]
+                norm_specs.append((xx,yy))
+                #print(ref)
+                names.append(ref[2:-4])
+                
+            lines = {key: lines_matched_dict[key] for key in ['Ca II', 'H I', "Ca I", "Fe I"] if key in lines_matched_dict}
+            spec_tower(norm_specs, os.path.join(dirname, "09_referencia_espectral"), names=names, annotation_wl=4157, lines_dict=lines, factor=1,g_band=True)
+            
+        ######################################################################################################
+        # Para producir el plot con las estrellas de referencia para el tipo espectral. banda G
+        ######################################################################################################
+        if spectrum_name == "EstrellaProblema2.dat": # La estrella caliente tipo O
+            wl_min=6400
+            wl_max=6600
             # Estrellas de referencia para el tipo espectral:
             referencias_o_lum = [x for x in os.listdir("Referencias_G_espectral") if ".dat" in x]
             sorted_ref = sorted(referencias_o_lum , key=lambda x: int(x.split("_")[0]))
@@ -876,7 +913,7 @@ def main():
                 names.append(ref[2:-4])
                 
             lines = {key: lines_matched_dict[key] for key in ['Ca II', 'H I'] if key in lines_matched_dict}
-            spec_tower(norm_specs, os.path.join(dirname, "09_referencia_espectral"), names=names, annotation_wl=4140, lines_dict=lines, factor=1)
+            spec_tower(norm_specs, os.path.join(dirname, "10_referencia_luminosidad"), names=names, annotation_wl=6400, lines_dict=lines, factor=1)
        
 
     
